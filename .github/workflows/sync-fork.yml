@@ -1,4 +1,9 @@
 name: Sync Fork with Upstream
+
+# 需要写权限
+permissions:
+  contents: write
+
 on:
   schedule:
     - cron: '0 0 * * *' # 每天 UTC 0点自动运行
