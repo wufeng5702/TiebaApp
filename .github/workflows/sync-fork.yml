@@ -13,37 +13,6 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 50 # 获取最近的历史
-
+      # 同步逻辑统一维护在 wufeng5702/actions-sync-upstream，此处只负责触发
       - name: Sync fork with upstream via rebase
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # 获取上游仓库全名
-          UPSTREAM=$(gh api "repos/$GITHUB_REPOSITORY" --jq '.parent.full_name')
-          if [ "$UPSTREAM" = "null" ] || [ -z "$UPSTREAM" ]; then
-            echo "当前仓库不是 Fork，跳过同步。"
-            exit 0
-          fi
-          echo "上游仓库: $UPSTREAM"
-
-          # 配置 Git 身份（用于可能的 rebase 提交）
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # 添加上游远程并拉取
-          git remote add upstream "https://github.com/$UPSTREAM.git"
-          git fetch upstream
-
-          # 切换到默认分支（假设为 main，可根据实际情况调整）
-          DEFAULT_BRANCH=$(gh api "repos/$GITHUB_REPOSITORY" --jq '.default_branch')
-          git checkout "$DEFAULT_BRANCH"
-
-          # 执行 rebase：将本地提交变基到上游最新提交之上
-          git rebase "upstream/$DEFAULT_BRANCH"
-
-          # 安全强制推送到你的 Fork
-          git push --force-with-lease origin "$DEFAULT_BRANCH"
+        uses: wufeng5702/actions-sync-upstream@main
