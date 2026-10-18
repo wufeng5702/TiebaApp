@@ -1,10 +1,5 @@
 package com.huanchengfly.tieba.post.ui.page.settings.habit
 
-import android.content.Context
-import android.content.Intent
-import android.os.Handler
-import android.os.Looper
-import android.widget.Toast
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.ExperimentalMaterialApi
@@ -17,11 +12,9 @@ import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.filled.TabletAndroid
 import androidx.compose.material.icons.outlined.AddModerator
 import androidx.compose.material.icons.outlined.CalendarViewDay
-import androidx.compose.material.icons.outlined.Campaign
 import androidx.compose.material.icons.outlined.ImageSearch
 import androidx.compose.material.icons.outlined.NightsStay
 import androidx.compose.material.icons.outlined.PhotoSizeSelectActual
-import androidx.compose.material.icons.outlined.SecurityUpdateWarning
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material.icons.outlined.Verified
 import androidx.compose.material.icons.outlined.WatchLater
@@ -325,60 +318,6 @@ fun HabitSettingsPage(
             }
             prefsItem {
                 SwitchPref(
-                    key = "safeMode",
-                    title = stringResource(id = R.string.title_safe_mode),
-                    summary = stringResource(id = R.string.summary_safe_mode),
-                    defaultChecked = true,
-                    onCheckedChange = { checked ->
-                        // 关闭安全模式时重置「不再提示」，下次重新开启时仍会提醒一次
-                        if (!checked) {
-                            context.appPreferences.safeModeDialogDontShow = false
-                        }
-                        Toast.makeText(context, R.string.toast_restart_app, Toast.LENGTH_SHORT).show()
-                        Handler(Looper.getMainLooper()).postDelayed({
-                            restartApp(context)
-                        }, 800)
-                    },
-                ) {
-                    LeadingIcon {
-                        AvatarIcon(
-                            icon = Icons.Outlined.SecurityUpdateWarning,
-                            size = Sizes.Small,
-                            contentDescription = null,
-                        )
-                    }
-                }
-            }
-            // 「不再提示」的恢复入口：仅当用户此前点过「不再提示」时才显示，
-            // 打开该开关即清掉标记，重新开启进入贴子/发贴页的安全模式提醒。
-            if (context.appPreferences.safeModeDialogDontShow) {
-                prefsItem {
-                    SwitchPref(
-                        key = "safeModeDialogDontShow",
-                        title = stringResource(id = R.string.title_dialog_safe_mode_hint_again),
-                        summary = stringResource(id = R.string.summary_dialog_safe_mode_hint_again),
-                        defaultChecked = false,
-                        onCheckedChange = {
-                            context.appPreferences.safeModeDialogDontShow = false
-                            Toast.makeText(
-                                context,
-                                R.string.toast_safe_mode_hint_restored,
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        },
-                    ) {
-                        LeadingIcon {
-                            AvatarIcon(
-                                icon = Icons.Outlined.Campaign,
-                                size = Sizes.Small,
-                                contentDescription = null,
-                            )
-                        }
-                    }
-                }
-            }
-            prefsItem {
-                SwitchPref(
                     key = "doNotUsePhotoPicker",
                     title = stringResource(id = R.string.title_do_not_use_photo_picker),
                     summary = {
@@ -405,17 +344,4 @@ fun HabitSettingsPage(
             }
         }
     }
-}
-
-/**
- * 重启应用：先以 NEW_TASK | CLEAR_TASK 启动 Launcher Intent，再结束当前进程。
- * 用于「显示有风险的功能」开关切换后立即生效（UI 入口显隐需要重新组合）。
- */
-private fun restartApp(context: Context) {
-    val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
-    intent?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-    if (intent != null) {
-        context.startActivity(intent)
-    }
-    Runtime.getRuntime().exit(0)
 }

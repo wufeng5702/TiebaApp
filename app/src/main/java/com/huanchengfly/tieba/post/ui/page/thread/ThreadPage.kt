@@ -1004,8 +1004,12 @@ fun ThreadPage(
 
         val currentTime = (System.currentTimeMillis() / 1000).toInt()
         val isTimeExpired = pollInfo.end_time in 1..currentTime
-        val showResult =
-            pollInfo.is_polled == 1 || isTimeExpired || pollInfo.status != 0 || LocalAccount.current == null
+        // 投票结果与票数始终可见（未登录/游客态同样可见，与官方客户端一致）；
+        // 只有「已登录 + 未投过 + 未截止 + 状态正常」时才允许选择并提交投票。
+        val isLoggedIn = LocalAccount.current != null
+        val canVote = isLoggedIn && pollInfo.is_polled != 1 && !isTimeExpired && pollInfo.status == 0
+        // total_poll 可能为 0（服务端未下发或无人参与），直接相除会得到 NaN
+        val totalPoll = pollInfo.total_poll
 
         Column(
             modifier = modifier
@@ -1061,9 +1065,9 @@ fun ThreadPage(
             Spacer(modifier = Modifier.height(14.dp))
 
             pollInfo.options.forEach { option ->
-                val ratio = option.num.toFloat() / pollInfo.total_poll
+                val ratio = if (totalPoll > 0) option.num.toFloat() / totalPoll else 0f
                 val animatedProgress by animateFloatAsState(
-                    targetValue = if (showResult) ratio else 0f,
+                    targetValue = ratio.coerceIn(0f, 1f),
                     animationSpec = tween(durationMillis = 500),
                     label = "pollRatioAnim"
                 )
@@ -1087,7 +1091,7 @@ fun ThreadPage(
                         .background(itemBackground)
                         .border(1.dp, itemBorderColor, RoundedCornerShape(8.dp))
                         .clickable {
-                            if (!showResult) {
+                            if (canVote) {
                                 selectedIds = if (pollInfo.is_multi != 1) {
                                     setOf(option.id)
                                 } else {
@@ -1100,14 +1104,12 @@ fun ThreadPage(
                             }
                         }
                 ) {
-                    if (showResult) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .fillMaxWidth(animatedProgress)
-                                .background(MaterialTheme.colors.primary.copy(alpha = 0.15f))
-                        )
-                    }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(animatedProgress)
+                            .background(MaterialTheme.colors.primary.copy(alpha = 0.15f))
+                    )
 
                     Row(
                         modifier = Modifier
@@ -1123,14 +1125,12 @@ fun ThreadPage(
                             modifier = Modifier.weight(1f)
                         )
 
-                        if (showResult) {
-                            Text(
-                                text = "${option.num}票 (${(ratio * 100).toInt()}%)",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colors.onSurface,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
+                        Text(
+                            text = "${option.num}票 (${(ratio * 100).toInt()}%)",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colors.onSurface,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
@@ -1149,7 +1149,7 @@ fun ThreadPage(
                     color = MaterialTheme.colors.onSurface
                 )
 
-                if (!showResult) {
+                if (canVote) {
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(20.dp))
@@ -1174,9 +1174,15 @@ fun ThreadPage(
                     }
                 } else {
                     Text(
-                        text = if (isTimeExpired) "投票已截止" else "已参与投票",
+                        text = when {
+                            isTimeExpired -> "投票已截止"
+                            pollInfo.is_polled == 1 -> "已参与投票"
+                            else -> "登录后可参与投票"
+                        },
                         fontSize = 12.sp,
-                        color = if (isTimeExpired) MaterialTheme.colors.error else MaterialTheme.colors.primary,
+                        color = if (isTimeExpired) MaterialTheme.colors.error
+                        else if (pollInfo.is_polled == 1) MaterialTheme.colors.primary
+                        else MaterialTheme.colors.onSurface.copy(alpha = 0.6f),
                         fontWeight = FontWeight.Medium
                     )
                 }
@@ -1682,10 +1688,10 @@ fun ThreadPage(
                                                         )
                                                     }
 
-                                                if (thread?.get { poll_info } != null) {
+                                                thread?.let { resolvePollInfo(it.get()) }?.let { pollInfo ->
                                                     PollWidget(
-                                                        thread?.get { poll_info }!!,
-                                                        {selectedIds ->
+                                                        pollInfo,
+                                                        { selectedIds ->
                                                             viewModel.send(
                                                                 ThreadUiIntent.PollThread(
                                                                     curForumId,
